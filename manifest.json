@@ -1,0 +1,50 @@
+{
+    "manifest_version": 2,
+    "name": "Mindure - AI Focus Guard",
+    "version": "1.0",
+    "description": "AI-powered extension to block distracting websites and maintain focus",
+    "permissions": [
+        "activeTab",
+        "storage",
+        "tabs",
+        "webNavigation",
+        "https://api.groq.com/*",
+        "<all_urls>"
+    ],
+    "browser_action": {
+        "default_popup": "popup.html",
+        "default_icon": {
+            "16": "icons/icon.png",
+            "48": "icons/icon.png",
+            "128": "icons/icon.png"
+        }
+    },
+    "content_scripts": [
+        {
+            "matches": ["<all_urls>"],
+            "js": ["content.js"],
+            "run_at": "document_end",
+            "all_frames": false
+        }
+    ],
+    "background": {
+        "scripts": ["background.js"],
+        "persistent": true
+    },
+    "options_page": "options.html",
+    "icons": {
+        "16": "icons/icon.png",
+        "48": "icons/icon.png",
+        "128": "icons/icon.png"
+    },
+    "browser_specific_settings": {
+        "gecko": {
+            "id": "mindure@dharun.dev"
+        }
+    },
+    "web_accessible_resources": [
+        "blocked.html",
+        "icons/*"
+    ],
+    "content_security_policy": "script-src 'self' 'unsafe-eval'; object-src 'self'"
+}
