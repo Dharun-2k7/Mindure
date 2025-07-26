@@ -1,7 +1,4 @@
 // MINDURE POPUP SCRIPT
-// NOTE: As of v1.1, page checking and blocking is handled automatically by the background script.
-// The popup is now only for toggling the extension, showing status, and managing settings.
-// See background.js for the automatic blocking logic.
 const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
 
 // DOM elements
@@ -20,8 +17,8 @@ let currentSettings = {
 // Initialize popup
 document.addEventListener('DOMContentLoaded', async () => {
     console.log('Popup loaded');
+    toggleSwitch.disabled = true;
     
-    // Add debug info
     const debugInfo = await getStorageData(['isEnabled', 'groqApiKey']);
     console.log('Debug - Storage contents:', {
         isEnabled: debugInfo.isEnabled,
@@ -36,7 +33,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 // Load settings from storage and background
 async function loadSettings() {
     try {
-        // First, load directly from storage to ensure we have latest data
         const result = await getStorageData(['isEnabled', 'groqApiKey']);
         currentSettings = {
             isEnabled: result.isEnabled || false,
@@ -46,13 +42,10 @@ async function loadSettings() {
         console.log('Direct storage result:', result);
         console.log('Current settings:', currentSettings);
         
-        // Try to get status from background script as well
         try {
             const response = await sendMessageToBackground({ action: 'getStatus' });
             if (response && response.success) {
-                // Update with background script data if available
                 currentSettings.isEnabled = response.isEnabled;
-                // Keep hasApiKey from direct storage check as it's more reliable
             }
         } catch (bgError) {
             console.log('Background script not responding, using storage data');
@@ -75,8 +68,6 @@ function updateUI() {
         statusDescription.textContent = 'Please configure your API key in options.';
         toggleSwitch.disabled = true;
         toggleSwitch.checked = false;
-        
-        // Add setup button if not exists
         addSetupButton();
     } else {
         statusText.textContent = currentSettings.isEnabled ? 'Focus Guard Active' : 'Focus Guard Paused';
@@ -85,8 +76,6 @@ function updateUI() {
             'Click to activate focus protection.';
         toggleSwitch.disabled = false;
         toggleSwitch.checked = currentSettings.isEnabled;
-        
-        // Remove setup button if exists
         removeSetupButton();
     }
 }
@@ -119,20 +108,16 @@ function removeSetupButton() {
 
 // Setup event listeners
 function setupEventListeners() {
-    // Toggle switch
     toggleSwitch.addEventListener('change', handleToggleChange);
     
-    // GitHub button
     githubBtn.addEventListener('click', () => {
         browserAPI.tabs.create({ url: 'https://github.com/Dharun-2k7/Mindure' });
     });
     
-    // LinkedIn button
     linkedinBtn.addEventListener('click', () => {
         browserAPI.tabs.create({ url: 'https://www.linkedin.com/in/dharun-kaarthick/' });
     });
     
-    // Listen for storage changes
     browserAPI.storage.onChanged.addListener((changes, namespace) => {
         if (namespace === 'sync' && (changes.groqApiKey || changes.isEnabled)) {
             console.log('Storage changed, reloading settings');
@@ -147,17 +132,14 @@ async function handleToggleChange(event) {
     console.log('Toggle changed to:', newState);
     
     if (!currentSettings.hasApiKey) {
-        // Revert toggle and show error
         toggleSwitch.checked = false;
         alert('Please configure your API key first by clicking the Setup button.');
         return;
     }
     
     try {
-        // Disable toggle temporarily
         toggleSwitch.disabled = true;
         
-        // Send message to background
         const response = await sendMessageToBackground({
             action: 'toggleEnabled',
             enabled: newState
@@ -172,11 +154,9 @@ async function handleToggleChange(event) {
         }
     } catch (error) {
         console.error('Error toggling focus guard:', error);
-        // Revert toggle state
         toggleSwitch.checked = !newState;
         alert('Error toggling focus guard. Please try again.');
     } finally {
-        // Re-enable toggle
         toggleSwitch.disabled = !currentSettings.hasApiKey;
     }
 }
@@ -204,7 +184,37 @@ function sendMessageToBackground(message) {
         }
     });
 }
+document.addEventListener('DOMContentLoaded', () => {
+    const toggleButton = document.getElementById('toggleButton');
+    const statusText = document.getElementById('statusText');
 
+    chrome.runtime.sendMessage({ action: 'getStatus' }, (response) => {
+        if (response.success) {
+            updateUI(response.isEnabled, response.hasApiKey);
+        } else {
+            console.error('Failed to get status:', response.error);
+            statusText.textContent = 'Error: Check console';
+        }
+    });
+
+    toggleButton.addEventListener('click', () => {
+        const isEnabled = toggleButton.textContent === 'Disable';
+        chrome.runtime.sendMessage({ action: 'toggleEnabled', enabled: isEnabled }, (response) => {
+            if (response.success) {
+                updateUI(response.enabled, true); // Assume hasApiKey remains true
+            } else {
+                console.error('Failed to toggle:', response.error);
+                statusText.textContent = 'Error: Check console';
+            }
+        });
+    });
+
+    function updateUI(isEnabled, hasApiKey) {
+        toggleButton.textContent = isEnabled ? 'Disable' : 'Enable';
+        statusText.textContent = `Status: ${isEnabled ? 'Enabled' : 'Disabled'}${hasApiKey ? '' : ' (No API Key)'}`;
+        toggleButton.disabled = !hasApiKey;
+    }
+});
 // Get data from storage
 function getStorageData(keys) {
     return new Promise((resolve) => {
@@ -218,7 +228,3 @@ function getStorageData(keys) {
         });
     });
 }
-
-// Remove manual check button logic (handled automatically now)
-// function addManualCheckButton() { ... }
-// function handleManualCheck() { ... }

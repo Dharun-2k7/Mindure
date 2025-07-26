@@ -1,24 +1,25 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mindure - Focus Guard</title>
+    <title>Mindure</title>
     <link rel="stylesheet" href="popup.css">
 </head>
 <body>
     <div class="container">
         <h1 class="title">MINDURE</h1>
+        
         <div class="toggle-section">
             <label class="switch">
                 <input type="checkbox" id="focus-toggle">
                 <span class="slider"></span>
             </label>
             <div class="status">
-                <span id="status-text">Focus Guard Active</span>
+                <h2 id="status-text">Focus Guard Active</h2>
                 <p>Your focus is protected.</p>
             </div>
         </div>
+
         <div class="quick-actions">
             <button class="action-btn" id="github">
                 <span class="btn-icon">📂</span> GitHub
@@ -28,6 +29,7 @@
             </button>
         </div>
     </div>
+    
     <script src="popup.js"></script>
 </body>
 </html>

@@ -1,9 +1,8 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mindure - Options</title>
+    <title>MINDURE</title>
     <link rel="stylesheet" href="options.css">
 </head>
 <body>
@@ -14,7 +13,9 @@
             <div class="form-group">
                 <label for="api-key">Groq API Key:</label>
                 <input type="text" id="api-key" placeholder="Enter your Groq API key">
-                <p class="help-text">Get your free API key from <a href="https://console.groq.com/" target="_blank">Groq Console</a>.</p>
+                <div class="help-text">
+                    <a href="https://console.groq.com" target="_blank">Get your free API key from Groq Console.</a>
+                </div>
             </div>
             <button id="save-btn" class="btn">Save</button>
             <div id="message" class="message"></div>

@@ -8,6 +8,7 @@ browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
         case 'checkPageContent':
         case 'getPageInfo':
             const pageInfo = getPageInfo();
+            console.log('Page info collected:', pageInfo); // Debug log
             sendResponse(pageInfo);
             break;
         case 'blockPage':
@@ -24,7 +25,7 @@ browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
 // Get page information
 function getPageInfo() {
     const info = {
-        title: document.title,
+        title: document.title || 'No Title',
         url: window.location.href,
         metaDescription: getMetaDescription(),
         domain: window.location.hostname
@@ -33,12 +34,25 @@ function getPageInfo() {
     // --- YOUTUBE ENHANCEMENT ---
     // If on a YouTube watch page, extract channel name and video description
     if (window.location.hostname.includes('youtube.com') && window.location.pathname === '/watch') {
-        // Try to get channel name
-        const channelEl = document.querySelector('ytd-channel-name a, #owner-name a');
-        info.youtubeChannel = channelEl ? channelEl.textContent.trim() : '';
-        // Try to get video description
-        const descEl = document.querySelector('#description, ytd-expander[collapsed]');
-        info.youtubeDescription = descEl ? descEl.textContent.trim() : '';
+        // Retry selectors with a timeout to handle dynamic loading
+        const getElementWithRetry = (selector, maxAttempts = 5, delay = 500) => {
+            return new Promise((resolve) => {
+                let attempts = 0;
+                const interval = setInterval(() => {
+                    const el = document.querySelector(selector);
+                    if (el || attempts >= maxAttempts) {
+                        clearInterval(interval);
+                        resolve(el ? el.textContent.trim() : '');
+                    }
+                    attempts++;
+                }, delay);
+            });
+        };
+
+        (async () => {
+            info.youtubeChannel = await getElementWithRetry('ytd-channel-name a, #owner-name a') || 'Unknown Channel';
+            info.youtubeDescription = await getElementWithRetry('#description, ytd-expander[collapsed]') || 'No Description';
+        })();
     }
     // --- END YOUTUBE ENHANCEMENT ---
 
@@ -51,113 +65,135 @@ function getMetaDescription() {
     return metaDesc ? metaDesc.getAttribute('content') : '';
 }
 
-// Block the current page
+// Block the current page with enhanced override feedback
 function blockPage() {
-    // Create blocking overlay
     const overlay = document.createElement('div');
     overlay.id = 'mindure-block-overlay';
-    overlay.innerHTML = `
-        <div style="
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: #1a1a1a;
-            color: #ffffff;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 999999;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
-            flex-direction: column;
-        ">
-            <div style="text-align: center; max-width: 600px; padding: 20px;">
-                <h1 style="
-                    font-size: 3rem;
-                    color: #ff4500;
-                    text-shadow: 0 0 10px rgba(255, 69, 0, 0.5);
-                    margin-bottom: 20px;
-                    letter-spacing: 2px;
-                ">MINDURE</h1>
-                <h2 style="
-                    font-size: 1.8rem;
-                    color: #ffffff;
-                    margin-bottom: 15px;
-                ">🚫 Content Blocked</h2>
-                <p style="
-                    font-size: 1.1rem;
-                    color: #cccccc;
-                    margin-bottom: 20px;
-                    line-height: 1.6;
-                ">This page has been identified as potentially distracting content.</p>
-                <p style="
-                    font-size: 1rem;
-                    color: #888888;
-                    margin-bottom: 30px;
-                ">Stay focused on your goals! 🎯</p>
-                <div style="display: flex; gap: 15px; justify-content: center; flex-wrap: wrap;">
-                    <button id="mindure-override" style="
-                        background-color: #ff4500;
-                        border: none;
-                        border-radius: 8px;
-                        padding: 12px 24px;
-                        font-size: 14px;
-                        font-weight: 600;
-                        color: #ffffff;
-                        cursor: pointer;
-                        transition: background-color 0.3s;
-                    ">Override Block</button>
-                    <button id="mindure-close-tab" style="
-                        background-color: #333333;
-                        border: none;
-                        border-radius: 8px;
-                        padding: 12px 24px;
-                        font-size: 14px;
-                        font-weight: 600;
-                        color: #ffffff;
-                        cursor: pointer;
-                        transition: background-color 0.3s;
-                    ">Close Tab</button>
-                </div>
-            </div>
-        </div>
+    overlay.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: #1a1a1a;
+        color: #ffffff;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 999999;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+        flex-direction: column;
     `;
+
+    const content = document.createElement('div');
+    content.style.cssText = `
+        text-align: center;
+        max-width: 600px;
+        padding: 20px;
+    `;
+
+    const title = document.createElement('h1');
+    title.textContent = 'MINDURE';
+    title.style.cssText = `
+        font-size: 3rem;
+        color: #ff4500;
+        text-shadow: 0 0 10px rgba(255, 69, 0, 0.5);
+        margin-bottom: 20px;
+        letter-spacing: 2px;
+    `;
+
+    const subtitle = document.createElement('h2');
+    subtitle.textContent = '🚫 Content Blocked';
+    subtitle.style.cssText = `
+        font-size: 1.8rem;
+        color: #ffffff;
+        margin-bottom: 15px;
+    `;
+
+    const message = document.createElement('p');
+    message.textContent = 'This page has been identified as potentially distracting content.';
+    message.style.cssText = `
+        font-size: 1.1rem;
+        color: #cccccc;
+        margin-bottom: 20px;
+        line-height: 1.6;
+    `;
+
+    const focusMessage = document.createElement('p');
+    focusMessage.textContent = 'Stay focused or override to continue. 🎯';
+    focusMessage.style.cssText = `
+        font-size: 1rem;
+        color: #888888;
+        margin-bottom: 30px;
+    `;
+
+    const buttonContainer = document.createElement('div');
+    buttonContainer.style.cssText = `
+        display: flex;
+        gap: 15px;
+        justify-content: center;
+        flex-wrap: wrap;
+    `;
+
+    const overrideBtn = document.createElement('button');
+    overrideBtn.id = 'mindure-override';
+    overrideBtn.textContent = 'Override Block';
+    overrideBtn.style.cssText = `
+        background-color: #ff4500;
+        border: none;
+        border-radius: 8px;
+        padding: 12px 24px;
+        font-size: 14px;
+        font-weight: 600;
+        color: #ffffff;
+        cursor: pointer;
+        transition: background-color 0.3s;
+    `;
+    overrideBtn.addEventListener('click', () => {
+        overlay.remove();
+        console.log('Block overridden by user');
+    });
+
+    const closeBtn = document.createElement('button');
+    closeBtn.id = 'mindure-close-tab';
+    closeBtn.textContent = 'Close Tab';
+    closeBtn.style.cssText = `
+        background-color: #333333;
+        border: none;
+        border-radius: 8px;
+        padding: 12px 24px;
+        font-size: 14px;
+        font-weight: 600;
+        color: #ffffff;
+        cursor: pointer;
+        transition: background-color 0.3s;
+    `;
+    closeBtn.addEventListener('click', () => window.close());
+
+    buttonContainer.append(overrideBtn, closeBtn);
+    content.append(title, subtitle, message, focusMessage, buttonContainer);
+    overlay.append(content);
     
-    // Remove existing overlay if any
     const existingOverlay = document.getElementById('mindure-block-overlay');
     if (existingOverlay) {
         existingOverlay.remove();
     }
     
-    // Add overlay to page
     document.body.appendChild(overlay);
     
-    // Add event listeners
-    document.getElementById('mindure-override').addEventListener('click', () => {
-        overlay.remove();
-    });
-    
-    document.getElementById('mindure-close-tab').addEventListener('click', () => {
-        window.close();
-    });
-    
-    // Prevent scrolling
     document.body.style.overflow = 'hidden';
     
     console.log('Page blocked by Mindure');
 }
 
 // --- YOUTUBE SPA NAVIGATION HANDLING ---
-// Listen for URL changes (YouTube SPA navigation)
 let lastUrl = location.href;
 new MutationObserver(() => {
     if (location.href !== lastUrl) {
         lastUrl = location.href;
-        // Notify background to re-check the page
         browserAPI.runtime.sendMessage({ action: 'youtubeUrlChanged' });
     }
-}).observe(document, { subtree: true, childList: true });
+}).observe(document.head, { childList: true });
 // --- END YOUTUBE SPA NAVIGATION HANDLING ---
 
 // Initialize content script
